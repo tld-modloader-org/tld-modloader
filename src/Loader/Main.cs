@@ -35,14 +35,6 @@ namespace Loader
 
                         assemblies = new List<Assembly>();
 
-                        UnityEngine.SceneManagement.SceneManager.sceneLoaded += (scene, mode) =>
-                        {
-                            if (scene.name != "boot" && scene.name != "mainmenu" && scene.name != "empty")
-                            {
-                                GameEventManager.WorldLoadedTrigger();
-                            }
-                        };
-
                         LoadMods();
                         PatchHarmony();
                     }

@@ -11,10 +11,11 @@ Task("Deploy").Does(() =>
 {
     if (deploy_dir == "") throw new Exception("No deploy directory specified!");
 
-    CopyFile("build/Installer.exe", deploy_dir + "/Installer.exe");
-    CopyFile("build/Loader.dll", deploy_dir + "/Loader.dll");
-    CopyFile("build/0Harmony.dll", deploy_dir + "/0Harmony.dll");
-    CopyFile("build/dnlib.dll", deploy_dir + "/dnlib.dll");
+    CopyFile("build/TestScripts.dll", deploy_dir + "/Mods/TestScripts.dll");
+    CopyFile("build/Installer.exe", deploy_dir + "/Managed/Installer.exe");
+    CopyFile("build/Loader.dll", deploy_dir + "/Managed/Loader.dll");
+    CopyFile("build/0Harmony.dll", deploy_dir + "/Managed/0Harmony.dll");
+    CopyFile("build/dnlib.dll", deploy_dir + "/Managed/dnlib.dll");
 });
 
 RunTarget(target);
