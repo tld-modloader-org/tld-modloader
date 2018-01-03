@@ -18,26 +18,25 @@ namespace Loader
         private static GameObject scriptHost;
         private static List<Assembly> assemblies;
 
-        private static readonly string nonAutisticDataPath = Application.dataPath.Replace(@"/", @"\");
-
         public static void Initialize()
         {
-            if (!initialized)
-                lock (initializeSyncRoot)
-                    if (!initialized)
-                    {
-                        initialized = true;
-                        ModFolder = Path.Combine(nonAutisticDataPath, "Mods");
-                        if (!Directory.Exists(ModFolder)) Directory.CreateDirectory(ModFolder);
+            if (initialized) return;
+            
+            lock (initializeSyncRoot)
+                if (!initialized)
+                {
+                    initialized = true;
+                    ModFolder = Path.GetFullPath(Path.Combine(Application.dataPath, "Mods"));
+                    if (!Directory.Exists(ModFolder)) Directory.CreateDirectory(ModFolder);
 
-                        scriptHost = new GameObject();
-                        UObject.DontDestroyOnLoad(scriptHost);
+                    scriptHost = new GameObject();
+                    UObject.DontDestroyOnLoad(scriptHost);
 
-                        assemblies = new List<Assembly>();
+                    assemblies = new List<Assembly>();
 
-                        LoadMods();
-                        PatchHarmony();
-                    }
+                    LoadMods();
+                    PatchHarmony();
+                }
         }
 
         public static void LoadMods()
@@ -65,11 +64,7 @@ namespace Loader
             var currentInstance = HarmonyInstance.Create("ModLoader");
             currentInstance.PatchAll(Assembly.GetExecutingAssembly());
 
-            foreach (var assembly in assemblies)
-            {
-                var instance = HarmonyInstance.Create(assembly.FullName);
-                instance.PatchAll(assembly);
-            }
+            assemblies.ForEach(assembly => HarmonyInstance.Create(assembly.FullName));
         }
     }
 }

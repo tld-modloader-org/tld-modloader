@@ -11,6 +11,7 @@ namespace Installer
                 module.GetTypes().First(x => x.Name == @class).FindMethod(method) :
                 module.GetTypes().First(x => x.Name == @class).FindMethod(method, signature);
 
+        //TODO Remove if not needed
         public static void InsertCall(ModuleDefMD module, UTF8String @class, UTF8String method, int line, IMethod inject, MethodSig signature = null) =>
             InsertCall(FindMethod(module, @class, method, signature), line, inject);
 

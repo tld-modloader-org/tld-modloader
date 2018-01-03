@@ -1,10 +1,10 @@
-﻿using Harmony;
-using System;
+﻿using System;
+using Harmony;
 
-namespace Loader
+namespace Loader.Patches
 {
     [HarmonyPatch(typeof(GameManager), "GetVersionString")]
-    internal static class VersionDisplay
+    internal static class VersionDisplayPatch
     {
         private static void Postfix(ref string __result)
         {

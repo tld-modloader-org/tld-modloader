@@ -5,9 +5,9 @@ using System.Linq;
 
 namespace Installer
 {
-    class Program
+    internal static class Program
     {
-        static void Main(string[] args)
+        private static void Main()
         {
             var managedFolder = new DirectoryInfo(Environment.CurrentDirectory);
 
@@ -28,19 +28,9 @@ namespace Installer
                 using (var modLoader = ModuleDefMD.Load(modLoaderPath))
                 {
                     TypeDef main = modLoader.GetTypes().First(x => x.Name == "Main");
-                    TypeDef eventManager = modLoader.GetTypes().First(x => x.Name == "GameEventManager");
 
                     IMethod mainInitialize = assemblyCsharp.Import(main.FindMethod("Initialize"));
-                    IMethod mainMenuLoadedTrigger = assemblyCsharp.Import(eventManager.FindMethod("MainMenuLoadedTrigger"));
-                    IMethod worldLoadedTrigger = assemblyCsharp.Import(eventManager.FindMethod("WorldLoadedTrigger"));
-                    IMethod gamePauseOpenTrigger = assemblyCsharp.Import(eventManager.FindMethod("GamePauseOpenTrigger"));
-                    IMethod gamePauseCloseTrigger = assemblyCsharp.Import(eventManager.FindMethod("GamePauseCloseTrigger"));
-
                     Utils.InsertCall(assemblyCsharp.GlobalType.FindOrCreateStaticConstructor(), 0, mainInitialize);
-                    Utils.InsertCall(assemblyCsharp, "Panel_MainMenu", "Awake", -1, mainMenuLoadedTrigger);
-                    Utils.InsertCall(assemblyCsharp, "GameManager", "LoadGame", -1, worldLoadedTrigger); // Doesn't work yet
-                    Utils.InsertCall(assemblyCsharp, "Panel_PauseMenu", "Enable", 16, gamePauseOpenTrigger);
-                    Utils.InsertCall(assemblyCsharp, "Panel_PauseMenu", "Enable", 24 + 1, gamePauseCloseTrigger);
 
                     assemblyCsharp.Write(tempAssemblyCsharpPath);
                 }
