@@ -2,6 +2,8 @@
 using System.Runtime.InteropServices;
 using Loader;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 namespace TestScripts
 {
@@ -16,12 +18,7 @@ namespace TestScripts
         {
             if (Input.GetKeyDown(KeyCode.K))
             {
-                new GameObject().AddComponent<uConsole>();
-            }
-
-            if (Input.GetKeyDown(KeyCode.L))
-            {
-                // uConsole.RunCommand("god");
+                Instantiate(Resources.Load("uConsole"));
             }
         }
     }

@@ -48,10 +48,11 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CommandAttribute.cs" />
+    <Compile Include="Commands.cs" />
     <Compile Include="GameEventManager.cs" />
     <Compile Include="Hooks\GamePauseHook.cs" />
     <Compile Include="Hooks\MainMenuLoadedHook.cs" />
-    <Compile Include="Hooks\WorldLoadedHook.cs" />
     <Compile Include="Main.cs" />
     <Compile Include="Patches\VersionDisplayPatch.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
