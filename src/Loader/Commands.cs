@@ -18,5 +18,11 @@
                 flyModeActive = false;
             }
         }
+
+        [Command("warning")]
+        public static void DisplayWarning(string warning)
+        {
+            InterfaceManager.m_Panel_HUD.DisplayWarningMessage(warning);
+        }
     }
 }

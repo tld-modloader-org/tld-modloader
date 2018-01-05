@@ -5,14 +5,14 @@ using System.IO;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UTJ;
+using Path = System.IO.Path;
 using UObject = UnityEngine.Object;
 
 namespace Loader
 {
     public static class Main
     {
-        public const bool DebugMode = true;
+        public const bool DebugMode = true; // TODO: Some sort of config?
         
         public static string ModFolder;
 
@@ -41,9 +41,6 @@ namespace Loader
 
                         assemblies = new List<Assembly>();
 
-                        // TODO: Load this somewhere else
-                        // debugConsole = UObject.Instantiate(Resources.Load("uConsole"));
-                        
                         LoadMods();
                         PatchHarmony();
                         RemainingEdits();
@@ -95,6 +92,15 @@ namespace Loader
                     worldHasLoaded = false;
                 }
             };
+
+            GameEventManager.MainMenuLoaded += () =>
+            {
+                if (DebugMode && debugConsole == null)
+                {
+                    debugConsole = UObject.Instantiate(Resources.Load("uConsole"));
+                    UObject.DontDestroyOnLoad(debugConsole);
+                }
+            };
         }
 
         private static void RegisterCommands()
@@ -109,29 +115,41 @@ namespace Loader
             {
                 if (type.IsAbstract && type.IsSealed) // static
                 {
-                    foreach (var method in Enumerate(
-                            type.GetMethods(BindingFlags.Public | BindingFlags.Static),
-                            type.GetMethods(BindingFlags.NonPublic | BindingFlags.Static))) // TODO: This probably isn't the best way to do this
+                    foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.FlattenHierarchy))
                     {
                         object[] attributes = method.GetCustomAttributes(typeof(CommandAttribute), false);
-                        if (attributes.Length > 0)
+                        if (attributes.Length > 0 && method.ReturnType == typeof(void))
                         {
+                            Type[] parameters = method.GetParameters().Types();
+                            
                             CommandAttribute commandAttribute = (CommandAttribute) attributes[0];
-                            uConsole.RegisterCommand(commandAttribute.Name ?? method.Name,
-                                () => method.Invoke(null, null));
+
+                            if (parameters.Length == 0)
+                            {
+                                var methodDelegate = (uConsole.DebugCommand)Delegate.CreateDelegate(typeof(uConsole.DebugCommand), method, true);
+                                if (methodDelegate == null) throw new MissingMethodException($"Cannot find the method {method.Name} in {type.Name} (Delegate.CreateDelegate returned zero)");
+                                uConsole.RegisterCommand(commandAttribute.Name ?? method.Name, methodDelegate);
+                            }
+                            else
+                            {
+                                uConsole.RegisterCommand(commandAttribute.Name ?? method.Name, () =>
+                                {
+                                    object[] parameterValues = new object[parameters.Length];
+                                
+                                    for (int i = 0; i < parameters.Length; i++)
+                                    {
+                                        if (parameters[i] == typeof(string)) parameterValues[i] = uConsole.GetString();
+                                        else if (parameters[i] == typeof(bool)) parameterValues[i] = uConsole.GetBool();
+                                        else if (parameters[i] == typeof(int)) parameterValues[i] = uConsole.GetInt();
+                                        else if (parameters[i] == typeof(float)) parameterValues[i] = uConsole.GetFloat();
+                                        else throw new ArgumentException($"Parameter type unrecognized ({parameters[i].Name})");
+                                    }
+                                    
+                                    method.Invoke(null, parameterValues); // TODO: Don't store the whole MethodInfo
+                                });
+                            }
                         }
                     }
-                }
-            }
-        }
-
-        private static IEnumerable<T> Enumerate<T>(params T[][] arrays)
-        {
-            for (int x = 0; x < arrays.Length; x++)
-            {
-                for (int y = 0; y < arrays[x].Length; y++)
-                {
-                    yield return arrays[x][y];
                 }
             }
         }
