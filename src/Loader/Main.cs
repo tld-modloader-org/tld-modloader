@@ -1,7 +1,7 @@
 ﻿using Harmony;
-using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -12,15 +12,12 @@ namespace Loader
 {
     public static class Main
     {
-        public const bool DebugMode = true; // TODO: Some sort of config?
-        
         public static string ModFolder;
+
+        public static List<Mod> Mods = new List<Mod>();
 
         private static readonly object initializeSyncRoot = new object();
         private static volatile bool initialized = false;
-
-        private static GameObject scriptHost;
-        private static List<Assembly> assemblies;
 
         private static bool worldHasLoaded = false;
 
@@ -36,42 +33,31 @@ namespace Loader
                         ModFolder = Path.GetFullPath(Path.Combine(Application.dataPath, "Mods"));
                         if (!Directory.Exists(ModFolder)) Directory.CreateDirectory(ModFolder);
 
-                        scriptHost = new GameObject();
-                        UObject.DontDestroyOnLoad(scriptHost);
-
-                        assemblies = new List<Assembly>();
-
-                        LoadMods();
-                        PatchHarmony();
+                        Mods = LoadMods().ToList();
+                        Mods.TrimExcess();
+                        
+                        var currentInstance = HarmonyInstance.Create("ModLoader");
+                        currentInstance.PatchAll(Assembly.GetExecutingAssembly());
+                        
                         RemainingEdits();
-                        RegisterCommands();
+                        
+                        Mod.RegisterCommands(Assembly.GetExecutingAssembly());
                     }
         }
 
-        private static void LoadMods()
+        private static IEnumerable<Mod> LoadMods()
         {
-            foreach (string script in Directory.GetFiles(ModFolder, "*.dll", SearchOption.AllDirectories))
+            foreach (string path in Directory.GetFiles(ModFolder, "*.dll", SearchOption.AllDirectories))
             {
-                var assembly = Assembly.LoadFrom(script);
-                assemblies.Add(assembly);
-
-                foreach (var type in assembly.GetTypes())
-                {
-                    if (type.IsSubclassOf(typeof(MonoBehaviour)) &&
-                        Attribute.IsDefined(type, typeof(ScriptAttribute)))
-                    {
-                        scriptHost.AddComponent(type);
-                    }
-                }
+                var mod = new Mod(Path.GetFileNameWithoutExtension(path));
+                
+                mod.Load(path);
+                mod.PatchHarmony();
+                mod.RegisterCommands();
+                mod.StartScripts();
+                
+                yield return mod;
             }
-        }
-
-        private static void PatchHarmony()
-        {
-            var currentInstance = HarmonyInstance.Create("ModLoader");
-            currentInstance.PatchAll(Assembly.GetExecutingAssembly());
-
-            assemblies.ForEach(assembly => HarmonyInstance.Create(assembly.FullName).PatchAll(assembly));
         }
 
         private static void RemainingEdits()
@@ -95,63 +81,12 @@ namespace Loader
 
             GameEventManager.MainMenuLoaded += () =>
             {
-                if (DebugMode && debugConsole == null)
+                if (debugConsole == null)
                 {
                     debugConsole = UObject.Instantiate(Resources.Load("uConsole"));
                     UObject.DontDestroyOnLoad(debugConsole);
                 }
             };
-        }
-
-        private static void RegisterCommands()
-        {
-            RegisterCommands(Assembly.GetExecutingAssembly());
-            assemblies.ForEach(RegisterCommands);
-        }
-
-        private static void RegisterCommands(Assembly assembly)
-        {
-            foreach (var type in assembly.GetTypes())
-            {
-                if (type.IsAbstract && type.IsSealed) // static
-                {
-                    foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.FlattenHierarchy))
-                    {
-                        object[] attributes = method.GetCustomAttributes(typeof(CommandAttribute), false);
-                        if (attributes.Length > 0 && method.ReturnType == typeof(void))
-                        {
-                            Type[] parameters = method.GetParameters().Types();
-                            
-                            CommandAttribute commandAttribute = (CommandAttribute) attributes[0];
-
-                            if (parameters.Length == 0)
-                            {
-                                var methodDelegate = (uConsole.DebugCommand)Delegate.CreateDelegate(typeof(uConsole.DebugCommand), method, true);
-                                if (methodDelegate == null) throw new MissingMethodException($"Cannot find the method {method.Name} in {type.Name} (Delegate.CreateDelegate returned zero)");
-                                uConsole.RegisterCommand(commandAttribute.Name ?? method.Name, methodDelegate);
-                            }
-                            else
-                            {
-                                uConsole.RegisterCommand(commandAttribute.Name ?? method.Name, () =>
-                                {
-                                    object[] parameterValues = new object[parameters.Length];
-                                
-                                    for (int i = 0; i < parameters.Length; i++)
-                                    {
-                                        if (parameters[i] == typeof(string)) parameterValues[i] = uConsole.GetString();
-                                        else if (parameters[i] == typeof(bool)) parameterValues[i] = uConsole.GetBool();
-                                        else if (parameters[i] == typeof(int)) parameterValues[i] = uConsole.GetInt();
-                                        else if (parameters[i] == typeof(float)) parameterValues[i] = uConsole.GetFloat();
-                                        else throw new ArgumentException($"Parameter type unrecognized ({parameters[i].Name})");
-                                    }
-                                    
-                                    method.Invoke(null, parameterValues); // TODO: Don't store the whole MethodInfo
-                                });
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
 }
